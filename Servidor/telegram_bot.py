@@ -13,6 +13,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STORAGE_DIR = os.path.join(BASE_DIR, "storage")
 
 arquivos_pendentes = {}
+navegacao_cache = {}  # Guarda os caminhos para evitar problemas com barras no callback_data
 ITENS_POR_PAGINA = 5
 
 def enviar_mensagem_telegram(mensagem: str, teclado_inline=None, chat_id=TELEGRAM_CHAT_ID):
@@ -58,6 +59,16 @@ def baixar_arquivo_telegram(file_id, pasta_destino, nome_sugerido):
         print(f"Erro ao baixar: {e}")
         return False
 
+def registrar_cache_rota(caminho_relativo, pagina):
+    """Salva o caminho em memória e retorna um ID curto para o botão"""
+    chave = f"{caminho_relativo}:::{pagina}"
+    for k, v in navegacao_cache.items():
+        if v == chave:
+            return k
+    novo_id = str(int(time.time() * 1000))[-6:] # ID único de 6 dígitos
+    navegacao_cache[novo_id] = chave
+    return novo_id
+
 def gerar_teclado_diretorio(caminho_relativo="", pagina=0):
     """Constrói os botões para pastas, subpastas, arquivos e paginação (5 por página)"""
     caminho_relativo = caminho_relativo.strip("/")
@@ -89,22 +100,26 @@ def gerar_teclado_diretorio(caminho_relativo="", pagina=0):
     for el in itens_pagina:
         sub_caminho = f"{caminho_relativo}/{el['nome']}" if caminho_relativo else el['nome']
         if el["tipo"] == "pasta":
-            teclado.append([{"text": f"📂 {el['nome']}", "callback_data": f"dir:{sub_caminho}:0"}])
+            cache_id = registrar_cache_rota(sub_caminho, 0)
+            teclado.append([{"text": f"📂 {el['nome']}", "callback_data": f"dir:{cache_id}"}])
         else:
             teclado.append([{"text": f"📥 {el['nome']}", "callback_data": f"dl:{sub_caminho}"}])
 
     botoes_paginacao = []
     if pagina > 0:
-        botoes_paginacao.append({"text": "⬅️ Anterior", "callback_data": f"dir:{caminho_relativo}:{pagina - 1}"})
+        cache_ant = registrar_cache_rota(caminho_relativo, pagina - 1)
+        botoes_paginacao.append({"text": "⬅️ Anterior", "callback_data": f"dir:{cache_ant}"})
     if fim < total_itens:
-        botoes_paginacao.append({"text": "Próxima ➡️", "callback_data": f"dir:{caminho_relativo}:{pagina + 1}"})
+        cache_prox = registrar_cache_rota(caminho_relativo, pagina + 1)
+        botoes_paginacao.append({"text": "Próxima ➡️", "callback_data": f"dir:{cache_prox}"})
     
     if botoes_paginacao:
         teclado.append(botoes_paginacao)
 
     if caminho_relativo:
         pai = os.path.dirname(caminho_relativo)
-        teclado.append([{"text": "🔙 Voltar", "callback_data": f"dir:{pai}:0"}])
+        cache_pai = registrar_cache_rota(pai, 0)
+        teclado.append([{"text": "🔙 Voltar", "callback_data": f"dir:{cache_pai}"}])
     else:
         teclado.append([{"text": "❌ Fechar Menu", "callback_data": "dir:fechar"}])
 
@@ -114,7 +129,7 @@ def gerar_teclado_diretorio(caminho_relativo="", pagina=0):
 
 def escutar_comandos_telegram():
     from background_tasks import ler_bateria_termux 
-    global arquivos_pendentes
+    global arquivos_pendentes, navegacao_cache
     offset = None
     
     while True:
@@ -192,16 +207,21 @@ def escutar_comandos_telegram():
                                         editar_mensagem_telegram(chat_id, msg_id, "⚠️ Arquivo expirado, envie novamente.")
                             
                             elif data.startswith("dir:"):
-                                partes = data.split(":")
-                                sub_dir = ":".join(partes[1:-1])
-                                pagina = int(partes[-1]) if partes[-1].isdigit() else 0
+                                cache_id = data.replace("dir:", "")
                                 
-                                if sub_dir == "fechar":
+                                if cache_id == "fechar":
                                     editar_mensagem_telegram(chat_id, msg_id, "📁 *Explorador fechado.*")
                                     continue
                                     
-                                txt, teclado_dir = gerar_teclado_diretorio(sub_dir, pagina)
-                                editar_mensagem_telegram(chat_id, msg_id, txt, teclado_dir)
+                                if cache_id in navegacao_cache:
+                                    info_cache = navegacao_cache[cache_id]
+                                    sub_dir, pagina_str = info_cache.rsplit(":::", 1)
+                                    pagina = int(pagina_str)
+                                    
+                                    txt, teclado_dir = gerar_teclado_diretorio(sub_dir, pagina)
+                                    editar_mensagem_telegram(chat_id, msg_id, txt, teclado_dir)
+                                else:
+                                    editar_mensagem_telegram(chat_id, msg_id, "⚠️ Sessão expirada. Digite `/arquivos` novamente.")
                             
                             elif data.startswith("dl:"):
                                 caminho_relativo = data.replace("dl:", "")
