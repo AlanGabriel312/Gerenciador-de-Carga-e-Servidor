@@ -1,7 +1,24 @@
 import subprocess
 import json
+import os
+from dotenv import load_dotenv
 from database import registrar_telemetria
-from telegram_bot import enviar_mensagem_telegram
+
+# Carrega as variáveis do arquivo .env
+load_dotenv()
+
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+def enviar_alerta_telegram(mensagem):
+    try:
+        import urllib.request
+        import urllib.parse
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+        dados = urllib.parse.urlencode({'chat_id': TELEGRAM_CHAT_ID, 'text': mensagem}).encode('utf-8')
+        urllib.request.urlopen(url, data=dados, timeout=5)
+    except Exception as e:
+        print(f"Erro ao enviar alerta para o Telegram: {e}")
 
 def ler_bateria_termux():
     try:
@@ -29,16 +46,14 @@ def rotina_verificacao_sistema():
     perc = bateria["porcentagem"]
     temp = bateria["temperatura"]
     
-    # Alerta Crítico: Bateria abaixo de 10%
     if perc <= 10 and not alerta_bateria_enviado:
-        enviar_mensagem_telegram(f"🚨 *ALERTA CRÍTICO*: Bateria do servidor em {perc}%! O carregador pode ter falhado.")
+        enviar_alerta_telegram(f"🚨 ALERTA CRÍTICO: Bateria do servidor em {perc}%! O carregador pode ter falhado.")
         alerta_bateria_enviado = True
     elif perc > 15:
         alerta_bateria_enviado = False
 
-    # Alerta Crítico: Superaquecimento (> 42°C)
     if temp >= 42.0 and not alerta_temp_enviado:
-        enviar_mensagem_telegram(f"🔥 *ALERTA DE SUPERAQUECIMENTO*: Bateria atingiu {temp}°C!")
+        enviar_alerta_telegram(f"🔥 ALERTA DE SUPERAQUECIMENTO: Bateria atingiu {temp}°C!")
         alerta_temp_enviado = True
     elif temp < 39.0:
         alerta_temp_enviado = False
