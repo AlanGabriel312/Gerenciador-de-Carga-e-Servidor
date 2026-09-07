@@ -1,33 +1,37 @@
 import os
+import threading # ADICIONE ESTA LINHA
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from database import inicializar_banco
 from background_tasks import rotina_verificacao_sistema, ler_bateria_termux
-from telegram_bot import enviar_mensagem_telegram
+
+# MODIFIQUE ESTA LINHA PARA IMPORTAR AS DUAS FUNÇÕES
+from telegram_bot import enviar_mensagem_telegram, escutar_comandos_telegram 
 
 app = FastAPI(title="Servidor Central - Android IoT")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STORAGE_DIR = os.path.join(BASE_DIR, "storage")
 
-# Garante que as pastas padrão existam
 PASTAS_PADRAO = ["fotos", "documentos", "diversos"]
 for pasta in PASTAS_PADRAO:
     os.makedirs(os.path.join(STORAGE_DIR, pasta), exist_ok=True)
 
-# Inicializa o Banco SQLite ao subir o servidor
 inicializar_banco()
 
-# Configura o Agendador de Tarefas em Segundo Plano (Roda a cada 5 minutos)
 scheduler = BackgroundScheduler()
 scheduler.add_job(rotina_verificacao_sistema, 'interval', minutes=5)
 scheduler.start()
 
-# Opcional: Envia mensagem confirmando que o servidor iniciou perfeitamente
-enviar_mensagem_telegram("🚀 *Servidor Central online!* Gerenciador de arquivos e bateria operantes.")
+# Inicia a escuta do Telegram em segundo plano para ler o /status
+threading.Thread(target=escutar_comandos_telegram, daemon=True).start()
 
+try:
+    enviar_mensagem_telegram("🚀 *Servidor Central online!* Gerenciador de arquivos e bateria operantes.")
+except Exception:
+    pass
 # ==========================================
 # ROTAS DA PÁGINA INICIAL E API DO ESP8266
 # ==========================================
