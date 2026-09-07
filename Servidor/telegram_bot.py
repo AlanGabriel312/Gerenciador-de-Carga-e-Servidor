@@ -161,7 +161,7 @@ def escutar_comandos_telegram():
                                 nome = msg["document"].get("file_name", f"doc_{int(time.time())}")
                                 arquivos_pendentes[chat_id] = {"file_id": file_id, "nome": nome}
                                 teclado = [
-                                    [{"text": "📁 Fotos", "callback_data": "pasta:fotos"}, {"text": "📄 Documentos", "callback_data": "pasta:documentos"}],
+                                    [{"text": "📁 Fotos", "callback_data": "pasta:fotos"}, {"text": "📄 Docs", "callback_data": "pasta:docs"}],
                                     [{"text": "📦 Diversos", "callback_data": "pasta:diversos"}, {"text": "❌ Cancelar", "callback_data": "pasta:cancelar"}]
                                 ]
                                 enviar_mensagem_telegram(f"📥 Recebi o documento `{nome}`.\nEm qual pasta principal devo salvar?", teclado, chat_id)
@@ -171,7 +171,7 @@ def escutar_comandos_telegram():
                                 nome = f"foto_{int(time.time())}.jpg"
                                 arquivos_pendentes[chat_id] = {"file_id": file_id, "nome": nome}
                                 teclado = [
-                                    [{"text": "📁 Fotos", "callback_data": "pasta:fotos"}, {"text": "📄 Documentos", "callback_data": "pasta:documentos"}],
+                                    [{"text": "📁 Fotos", "callback_data": "pasta:fotos"}, {"text": "📄 Docs", "callback_data": "pasta:docs"}],
                                     [{"text": "📦 Diversos", "callback_data": "pasta:diversos"}, {"text": "❌ Cancelar", "callback_data": "pasta:cancelar"}]
                                 ]
                                 enviar_mensagem_telegram(f"🖼️ Recebi uma foto.\nEm qual pasta principal devo salvar?", teclado, chat_id)

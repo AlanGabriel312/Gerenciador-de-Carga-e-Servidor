@@ -15,7 +15,7 @@ app = FastAPI(title="Servidor Central - Android IoT")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STORAGE_DIR = os.path.join(BASE_DIR, "storage")
 
-PASTAS_PADRAO = ["fotos", "documentos", "diversos"]
+PASTAS_PADRAO = ["fotos", "docs", "diversos"]
 for pasta in PASTAS_PADRAO:
     os.makedirs(os.path.join(STORAGE_DIR, pasta), exist_ok=True)
 
