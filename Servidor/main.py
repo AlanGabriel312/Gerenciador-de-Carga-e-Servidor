@@ -1,12 +1,11 @@
 import os
-import threading
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from database import inicializar_banco
 from background_tasks import rotina_verificacao_sistema, ler_bateria_termux
-from telegram_bot import iniciar_bot_background
+from telegram_bot import enviar_mensagem_telegram
 
 app = FastAPI(title="Servidor Central - Android IoT")
 
@@ -26,8 +25,8 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(rotina_verificacao_sistema, 'interval', minutes=5)
 scheduler.start()
 
-# Inicia o Bot do Telegram em uma Thread separada para não travar o FastAPI
-threading.Thread(target=iniciar_bot_background, daemon=True).start()
+# Opcional: Envia mensagem confirmando que o servidor iniciou perfeitamente
+enviar_mensagem_telegram("🚀 *Servidor Central online!* Gerenciador de arquivos e bateria operantes.")
 
 # ==========================================
 # ROTAS DA PÁGINA INICIAL E API DO ESP8266
@@ -87,7 +86,6 @@ def comando_para_esp8266():
         return {"rele": 0, "acao": "desligar", "bateria": porcentagem}
     else:
         return {"rele": None, "acao": "manter", "bateria": porcentagem}
-
 
 # ==========================================
 # ROTAS DO SERVIDOR DE ARQUIVOS (NAVEGAR/UPLOAD/DOWNLOAD)

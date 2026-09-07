@@ -2,15 +2,20 @@ import os
 import urllib.request
 import urllib.parse
 import json
-from background_tasks import ler_bateria_termux
+from dotenv import load_dotenv
 
-TELEGRAM_TOKEN = "8979638708:AAGccCu9K8jC1bLJ6NkvSs-uvHZJS_4BfOA"
-TELEGRAM_CHAT_ID = "1181317619"
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STORAGE_DIR = os.path.join(BASE_DIR, "storage")
+# Carrega as variáveis do arquivo .env (na mesma pasta ou na raiz)
+load_dotenv()
+
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 def enviar_mensagem_telegram(mensagem: str):
     """Envia uma mensagem de texto usando diretamente a API HTTP do Telegram."""
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        print("❌ Erro: Credenciais do Telegram não encontradas no .env")
+        return False
+
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     dados = {
         "chat_id": TELEGRAM_CHAT_ID,
@@ -27,18 +32,3 @@ def enviar_mensagem_telegram(mensagem: str):
     except Exception as e:
         print(f"❌ Erro ao enviar mensagem para o Telegram: {e}")
         return False
-
-def verificar_comandos_telegram():
-    """
-    Função simples que pode rodar em segundo plano para checar mensagens 
-    ou enviar relatórios automáticos.
-    """
-    bateria = ler_bateria_termux()
-    if bateria:
-        texto = (
-            f"🤖 *Relatório Periódico do Servidor*\n"
-            f"🔋 Bateria: {bateria['porcentagem']}%\n"
-            f"🔌 Conexão: {bateria['status_plug']}\n"
-            f"🌡️ Temperatura: {bateria['temperatura']}°C"
-        )
-        enviar_mensagem_telegram(texto)
