@@ -1,62 +1,38 @@
 import os
-import asyncio
-from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
+import urllib.request
+import urllib.parse
+import json
+from pathlib import Path
+from dotenv import load_dotenv
 from background_tasks import ler_bateria_termux
 
-TELEGRAM_TOKEN = "8979638708:AAGccCu9K8jC1bLJ6NkvSs-uvHZJS_4BfOA"
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STORAGE_DIR = os.path.join(BASE_DIR, "storage")
+# Carrega o .env localizado na raiz do projeto (um nível acima de Servidor)
+BASE_DIR = Path(__file__).resolve().parent
+ENV_PATH = BASE_DIR.parent / ".env"
+load_dotenv(ENV_PATH)
 
-async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🤖 *Servidor Central Online!*\n\n"
-        "Comandos disponíveis:\n"
-        "/status - Vê a bateria e temperatura atuais\n\n"
-        "📁 *Dica:* Você pode enviar qualquer foto, vídeo ou documento direto no chat e eu salvo no servidor!",
-        parse_mode="Markdown"
-    )
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    bateria = ler_bateria_termux()
-    if not bateria:
-        await update.message.reply_text("❌ Erro ao ler sensores do celular.")
-        return
+def enviar_mensagem_telegram(mensagem: str):
+    """Envia uma mensagem de texto usando diretamente a API HTTP do Telegram."""
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        print("❌ Erro: Credenciais do Telegram não encontradas no .env")
+        return False
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    dados = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": mensagem,
+        "parse_mode": "Markdown"
+    }
+    dados_codificados = urllib.parse.urlencode(dados).encode("utf-8")
     
-    texto = (
-        f"📊 *Status do Servidor*\n"
-        f"🔋 Bateria: {bateria['porcentagem']}%\n"
-        f"🔌 Conexão: {bateria['status_plug']}\n"
-        f"🌡️ Temperatura: {bateria['temperatura']}°C"
-    )
-    await update.message.reply_text(texto, parse_mode="Markdown")
-
-async def receber_arquivos(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.document:
-        file = await update.message.document.get_file()
-        filename = update.message.document.file_name
-        pasta_destino = os.path.join(STORAGE_DIR, "documentos")
-    elif update.message.photo:
-        file = await update.message.photo[-1].get_file()
-        filename = f"foto_{file.file_unique_id}.jpg"
-        pasta_destino = os.path.join(STORAGE_DIR, "fotos")
-    else:
-        return
-
-    os.makedirs(pasta_destino, exist_ok=True)
-    caminho_final = os.path.join(pasta_destino, filename)
-    
-    await file.download_to_drive(caminho_final)
-    await update.message.reply_text(f"✅ Arquivo salvo com sucesso!", parse_mode="Markdown")
-
-def iniciar_bot_background():
-    """Inicia o bot com um loop de eventos dedicado para a thread"""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("status", cmd_status))
-    app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, receber_arquivos))
-    
-    app.run_polling(drop_pending_updates=True)
+    try:
+        requisicao = urllib.request.Request(url, data=dados_codificados)
+        with urllib.request.urlopen(requisicao, timeout=5) as resposta:
+            resultado = json.loads(resposta.read().decode())
+            return resultado.get("ok", False)
+    except Exception as e:
+        print(f"❌ Erro ao enviar mensagem para o Telegram: {e}")
+        return False

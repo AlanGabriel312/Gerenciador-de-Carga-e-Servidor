@@ -1,33 +1,34 @@
 import os
-import threading
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from database import inicializar_banco
 from background_tasks import rotina_verificacao_sistema, ler_bateria_termux
-from telegram_bot import iniciar_bot_background
+from telegram_bot import enviar_mensagem_telegram
 
 app = FastAPI(title="Servidor Central - Android IoT")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STORAGE_DIR = os.path.join(BASE_DIR, "storage")
 
-# Garante que as pastas padrão existam
 PASTAS_PADRAO = ["fotos", "documentos", "diversos"]
 for pasta in PASTAS_PADRAO:
     os.makedirs(os.path.join(STORAGE_DIR, pasta), exist_ok=True)
 
-# Inicializa o Banco SQLite ao subir o servidor
+# Inicializa o Banco SQLite
 inicializar_banco()
 
-# Configura o Agendador de Tarefas em Segundo Plano (Roda a cada 5 minutos)
+# Configura o Agendador de Tarefas (Roda a verificação a cada 5 minutos)
 scheduler = BackgroundScheduler()
 scheduler.add_job(rotina_verificacao_sistema, 'interval', minutes=5)
 scheduler.start()
 
-# Inicia o Bot do Telegram em uma Thread separada para não travar o FastAPI
-threading.Thread(target=iniciar_bot_background, daemon=True).start()
+# Envia mensagem inicial no Telegram avisando que o servidor subiu
+try:
+    enviar_mensagem_telegram("🚀 *Servidor Central do Celular online e operando com sucesso!*")
+except Exception:
+    pass
 
 # ==========================================
 # ROTAS DA PÁGINA INICIAL E API DO ESP8266
@@ -75,7 +76,6 @@ def home():
 
 @app.get("/api/comando-esp")
 def comando_para_esp8266():
-    """Rota consultada pelo ESP8266 a cada 10 segundos"""
     bateria = ler_bateria_termux()
     if not bateria:
         return {"rele": None, "erro": "Falha na leitura"}
@@ -90,7 +90,7 @@ def comando_para_esp8266():
 
 
 # ==========================================
-# ROTAS DO SERVIDOR DE ARQUIVOS (NAVEGAR/UPLOAD/DOWNLOAD)
+# ROTAS DO SERVIDOR DE ARQUIVOS
 # ==========================================
 @app.get("/navegar/{caminho_subpasta:path}", response_class=HTMLResponse)
 def navegar_pasta(caminho_subpasta: str):
