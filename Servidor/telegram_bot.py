@@ -64,25 +64,26 @@ def baixar_arquivo_telegram(file_id, pasta_destino, nome_sugerido):
         return False
 
 def listar_arquivos():
-    texto = "📁 *Seus Arquivos no Servidor:*\n\n"
-    vazio = True
+    texto = "📁 *Seus Arquivos no Servidor:*\n(Clique no botão para baixar o arquivo de qualquer lugar)"
+    
+    # Vamos montar um teclado inline com botões para cada arquivo
+    teclado = []
+    
     for pasta in ["fotos", "documentos", "diversos"]:
         caminho = os.path.join(STORAGE_DIR, pasta)
-        texto += f"📂 *{pasta.capitalize()}*\n"
         if os.path.exists(caminho):
             arquivos = os.listdir(caminho)
-            if arquivos:
-                vazio = False
-                for arq in arquivos:
-                    texto += f"  ├ {arq}\n"
-            else:
-                texto += "  └ _(vazia)_\n"
-        texto += "\n"
+            for arq in arquivos:
+                # Cada botão carrega o caminho relativo do arquivo
+                caminho_relativo = f"{pasta}/{arq}"
+                # O Telegram limita o callback_data a 64 bytes, usamos o prefixo dl:
+                teclado.append([{"text": f"📥 [{pasta}] {arq}", "callback_data": f"dl:{caminho_relativo}"}])
     
-    if vazio:
-        texto += "Nenhum arquivo encontrado.\n"
-    texto += "💡 *Dica:* Para enviar um arquivo, basta anexar uma foto ou documento no chat!"
-    return texto
+    if not teclado:
+        texto = "📁 *Nenhum arquivo encontrado no servidor.*"
+        return texto, None
+        
+    return texto, teclado
 
 def escutar_comandos_telegram():
     from background_tasks import ler_bateria_termux 
@@ -142,7 +143,8 @@ def escutar_comandos_telegram():
                                     if bateria:
                                         enviar_mensagem_telegram(f"📊 *Status Atual*\n🔋 Bat: {bateria['porcentagem']}%\n🔌 Conexão: {bateria['status_plug']}\n🌡️ Temp: {bateria['temperatura']}°C")
                                 elif texto == "/arquivos":
-                                    enviar_mensagem_telegram(listar_arquivos())
+                                    txt, teclado_arq = listar_arquivos()
+                                    enviar_mensagem_telegram(txt, teclado_arq, chat_id)
                                 elif texto == "/start" or texto == "oi":
                                     enviar_mensagem_telegram("🤖 *Servidor Ouvindo!*\nComandos:\n`/status` - Bateria\n`/arquivos` - Listar arquivos\n\n_Dica: Para guardar algo no servidor, é só anexar aqui no chat!_")
 
@@ -158,6 +160,7 @@ def escutar_comandos_telegram():
                             # Responde pro Telegram apagar o "reloginho" do botão
                             urllib.request.urlopen(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/answerCallbackQuery?callback_query_id={cb['id']}")
                             
+                            # Trata a seleção de pastas para upload
                             if data.startswith("pasta:"):
                                 pasta = data.split(":")[1]
                                 
@@ -177,6 +180,35 @@ def escutar_comandos_telegram():
                                             editar_mensagem_telegram(chat_id, msg_id, "❌ *Erro ao baixar o arquivo. Ele pode ser muito grande.*")
                                     else:
                                         editar_mensagem_telegram(chat_id, msg_id, "⚠️ O arquivo expirou da memória, tente reenviar.")
+                            
+                            # Trata o pedido de download de arquivo de qualquer lugar (dl:)
+                            elif data.startswith("dl:"):
+                                caminho_relativo = data.replace("dl:", "")
+                                caminho_absoluto = os.path.join(STORAGE_DIR, caminho_relativo)
+                                
+                                if os.path.exists(caminho_absoluto):
+                                    editar_mensagem_telegram(chat_id, msg_id, f"📤 *Enviando arquivo `{os.path.basename(caminho_absoluto)}`...*")
+                                    
+                                    url_envio = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendDocument"
+                                    try:
+                                        with open(caminho_absoluto, "rb") as f:
+                                            boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
+                                            body = (
+                                                f"--{boundary}\r\n"
+                                                f"Content-Disposition: form-data; name=\"chat_id\"\r\n\r\n{chat_id}\r\n"
+                                                f"--{boundary}\r\n"
+                                                f"Content-Disposition: form-data; name=\"document\"; filename=\"{os.path.basename(caminho_absoluto)}\"\r\n"
+                                                f"Content-Type: application/octet-stream\r\n\r\n"
+                                            ).encode("utf-8") + f.read() + f"\r\n--{boundary}--\r\n".encode("utf-8")
+                                            
+                                            req = urllib.request.Request(url_envio, data=body, headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+                                            urllib.request.urlopen(req, timeout=30)
+                                            
+                                        editar_mensagem_telegram(chat_id, msg_id, f"✅ *Arquivo `{os.path.basename(caminho_absoluto)}` enviado com sucesso!*")
+                                    except Exception as ex:
+                                        editar_mensagem_telegram(chat_id, msg_id, f"❌ Erro ao enviar arquivo: {ex}")
+                                else:
+                                    editar_mensagem_telegram(chat_id, msg_id, "❌ Arquivo não encontrado no servidor.")
         except Exception as e:
             pass 
         time.sleep(2)
