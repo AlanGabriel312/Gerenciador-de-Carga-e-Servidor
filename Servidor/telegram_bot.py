@@ -60,7 +60,8 @@ def baixar_arquivo_telegram(file_id, pasta_destino, nome_sugerido):
 
 def gerar_teclado_diretorio(caminho_relativo="", pagina=0):
     """Constrói os botões para pastas, subpastas, arquivos e paginação (5 por página)"""
-    caminho_absoluto = os.path.join(STORAGE_DIR, caminho_relativo)
+    caminho_relativo = caminho_relativo.strip("/")
+    caminho_absoluto = os.path.join(STORAGE_DIR, caminho_relativo) if caminho_relativo else STORAGE_DIR
     
     if not os.path.exists(caminho_absoluto):
         return "❌ Diretório não encontrado.", None
@@ -76,7 +77,6 @@ def gerar_teclado_diretorio(caminho_relativo="", pagina=0):
         else:
             arquivos.append(item)
 
-    # Junta tudo mantendo a ordem alfabética ou pastas primeiro
     todos_elementos = [{"tipo": "pasta", "nome": p} for p in pastas] + [{"tipo": "arquivo", "nome": a} for a in arquivos]
     
     total_itens = len(todos_elementos)
@@ -86,15 +86,13 @@ def gerar_teclado_diretorio(caminho_relativo="", pagina=0):
 
     teclado = []
     
-    # Adiciona os itens da página atual
     for el in itens_pagina:
-        sub_caminho = os.path.join(caminho_relativo, el["nome"]) if caminho_relativo else el["nome"]
+        sub_caminho = f"{caminho_relativo}/{el['nome']}" if caminho_relativo else el['nome']
         if el["tipo"] == "pasta":
-            teclado.append([{"text": f"📂 /{el['nome']}", "callback_data": f"dir:{sub_caminho}:0"}])
+            teclado.append([{"text": f"📂 {el['nome']}", "callback_data": f"dir:{sub_caminho}:0"}])
         else:
             teclado.append([{"text": f"📥 {el['nome']}", "callback_data": f"dl:{sub_caminho}"}])
 
-    # Controles de Paginação
     botoes_paginacao = []
     if pagina > 0:
         botoes_paginacao.append({"text": "⬅️ Anterior", "callback_data": f"dir:{caminho_relativo}:{pagina - 1}"})
@@ -104,14 +102,14 @@ def gerar_teclado_diretorio(caminho_relativo="", pagina=0):
     if botoes_paginacao:
         teclado.append(botoes_paginacao)
 
-    # Botão de Voltar (se estiver dentro de uma subpasta)
     if caminho_relativo:
         pai = os.path.dirname(caminho_relativo)
         teclado.append([{"text": "🔙 Voltar", "callback_data": f"dir:{pai}:0"}])
     else:
         teclado.append([{"text": "❌ Fechar Menu", "callback_data": "dir:fechar"}])
 
-    texto = f"📁 *Explorador:* `/{caminho_relativo}`\n(Página {pagina + 1} de {max(1, (total_itens + ITENS_POR_PAGINA - 1) // ITENS_POR_PAGINA)})"
+    exibir_caminho = f"/{caminho_relativo}" if caminho_relativo else "/raiz"
+    texto = f"📁 *Explorador:* `{exibir_caminho}`\n(Página {pagina + 1} de {max(1, (total_itens + ITENS_POR_PAGINA - 1) // ITENS_POR_PAGINA)})"
     return texto, teclado
 
 def escutar_comandos_telegram():
@@ -195,13 +193,13 @@ def escutar_comandos_telegram():
                             
                             elif data.startswith("dir:"):
                                 partes = data.split(":")
-                                sub_dir = partes[1]
+                                sub_dir = ":".join(partes[1:-1])
+                                pagina = int(partes[-1]) if partes[-1].isdigit() else 0
                                 
                                 if sub_dir == "fechar":
                                     editar_mensagem_telegram(chat_id, msg_id, "📁 *Explorador fechado.*")
                                     continue
                                     
-                                pagina = int(partes[2]) if len(partes) > 2 else 0
                                 txt, teclado_dir = gerar_teclado_diretorio(sub_dir, pagina)
                                 editar_mensagem_telegram(chat_id, msg_id, txt, teclado_dir)
                             
