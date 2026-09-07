@@ -13,7 +13,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STORAGE_DIR = os.path.join(BASE_DIR, "storage")
 
 arquivos_pendentes = {}
-navegacao_cache = {}  # Guarda os caminhos para evitar problemas com barras no callback_data
+navegacao_cache = {}
 ITENS_POR_PAGINA = 5
 
 def enviar_mensagem_telegram(mensagem: str, teclado_inline=None, chat_id=TELEGRAM_CHAT_ID):
@@ -60,12 +60,11 @@ def baixar_arquivo_telegram(file_id, pasta_destino, nome_sugerido):
         return False
 
 def registrar_cache_rota(caminho_relativo, pagina):
-    """Salva o caminho em memória e retorna um ID curto para o botão"""
     chave = f"{caminho_relativo}:::{pagina}"
     for k, v in navegacao_cache.items():
         if v == chave:
             return k
-    novo_id = str(int(time.time() * 1000))[-6:] # ID único de 6 dígitos
+    novo_id = str(int(time.time() * 1000))[-6:]
     navegacao_cache[novo_id] = chave
     return novo_id
 
@@ -74,10 +73,18 @@ def gerar_teclado_diretorio(caminho_relativo="", pagina=0):
     caminho_relativo = caminho_relativo.strip("/")
     caminho_absoluto = os.path.join(STORAGE_DIR, caminho_relativo) if caminho_relativo else STORAGE_DIR
     
-    if not os.path.exists(caminho_absoluto):
-        return "❌ Diretório não encontrado.", None
+    print(f"📂 [LOG EXPLORADOR] Acessando caminho: {caminho_absoluto}")
 
-    itens = sorted(os.listdir(caminho_absoluto))
+    if not os.path.exists(caminho_absoluto):
+        print(f"❌ [LOG ERRO] Caminho não existe: {caminho_absoluto}")
+        return f"❌ Diretório não encontrado: `/{caminho_relativo}`", None
+
+    try:
+        itens = sorted(os.listdir(caminho_absoluto))
+    except Exception as e:
+        print(f"❌ [LOG ERRO] Falha ao listar diretório: {e}")
+        return "❌ Erro ao ler o diretório.", None
+
     pastas = []
     arquivos = []
 
