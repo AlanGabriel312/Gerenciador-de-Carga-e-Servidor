@@ -11,7 +11,7 @@ const char* password = "20202290";
 IPAddress local_IP(192, 168, 0, 126);
 IPAddress gateway(192, 168, 0, 1);
 IPAddress subnet(255, 255, 255, 0);
-IPAddress primaryDNS(8, 8, 8, 8);   
+IPAddress primaryDNS(8, 8, 8, 8);
 
 // ========== URL DA API NO SERVIDOR CELULAR ==========
 const char* serverUrl = "http://192.168.0.115:8000/api/comando-esp";
@@ -29,7 +29,7 @@ void checarServidorCelular() {
 
     Serial.print("Consultando servidor no celular... ");
     http.begin(client, serverUrl);
-    
+
     int httpCode = http.GET(); // Faz a requisição GET para a API do FastAPI
 
     if (httpCode == HTTP_CODE_OK) {
@@ -41,11 +41,11 @@ void checarServidorCelular() {
       if (resposta.indexOf("\"rele\":1") != -1) {
         digitalWrite(pinoRele, HIGH);
         Serial.println(">> LIGANDO O CARREGADOR (Relé HIGH)");
-      } 
+      }
       else if (resposta.indexOf("\"rele\":0") != -1) {
         digitalWrite(pinoRele, LOW);
         Serial.println(">> DESLIGANDO O CARREGADOR (Relé LOW)");
-      } 
+      }
       else {
         Serial.println(">> Nível dentro da margem. Mantendo estado atual.");
       }
@@ -87,7 +87,7 @@ void setup() {
 
 void loop() {
   unsigned long tempoAtual = millis();
-  
+
   // Consulta o celular periodicamente a cada 10s
   if (tempoAtual - ultimaChecagem >= INTERVALO_CHECAGEM) {
     ultimaChecagem = tempoAtual;
