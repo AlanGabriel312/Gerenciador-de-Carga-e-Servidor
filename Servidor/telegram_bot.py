@@ -1,12 +1,10 @@
 import os
-from dotenv import load_dotenv
+import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CommandHandler, filters
 from background_tasks import ler_bateria_termux
 
-load_dotenv()
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-
+TELEGRAM_TOKEN = "8979638708:AAGccCu9K8jC1bLJ6NkvSs-uvHZJS_4BfOA"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STORAGE_DIR = os.path.join(BASE_DIR, "storage")
 
@@ -49,11 +47,16 @@ async def receber_arquivos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     caminho_final = os.path.join(pasta_destino, filename)
     
     await file.download_to_drive(caminho_final)
-    await update.message.reply_text(f"✅ Arquivo salvo com sucesso em `/{os.path.basename(pasta_destino)}/{filename}`", parse_mode="Markdown")
+    await update.message.reply_text(f"✅ Arquivo salvo com sucesso!", parse_mode="Markdown")
 
 def iniciar_bot_background():
+    """Inicia o bot com um loop de eventos dedicado para a thread"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO, receber_arquivos))
+    
     app.run_polling(drop_pending_updates=True)
