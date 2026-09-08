@@ -18,7 +18,7 @@ def inicializar_banco():
             porcentagem INTEGER,
             status_rele INTEGER,
             temperatura REAL,
-            data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            data_hora TIMESTAMP DEFAULT (datetime('now', 'localtime'))
         )
     """)
     
@@ -30,7 +30,7 @@ def inicializar_banco():
             status TEXT,
             mensagem_erro TEXT,
             tempo_execucao_ms INTEGER,
-            data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            data_hora TIMESTAMP DEFAULT (datetime('now', 'localtime'))
         )
     """)
     

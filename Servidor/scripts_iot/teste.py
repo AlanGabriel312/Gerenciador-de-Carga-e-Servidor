@@ -1,1 +1,1 @@
-print("Script de teste rodou com sucesso!")
+print("Script de teste rodou com sucesso! Agora sim !")
