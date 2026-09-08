@@ -11,7 +11,7 @@ def inicializar_banco():
     conn = conectar()
     cursor = conn.cursor()
     
-    # Tabela de Telemetria da Bateria (salva a cada 10 min para não lotar o disco)
+    # Tabela de Telemetria da Bateria
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS telemetria_bateria (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,3 +56,36 @@ def registrar_log_script(nome, status, erro=None, tempo_ms=0):
     )
     conn.commit()
     conn.close()
+
+def registrar_execucao_script(nome_script, status, mensagem_erro="", tempo_ms=0):
+    conn = conectar()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO logs_scripts (nome_script, status, mensagem_erro, tempo_execucao_ms)
+        VALUES (?, ?, ?, ?)
+    """, (nome_script, status, mensagem_erro, tempo_ms))
+    conn.commit()
+    conn.close()
+
+def obter_estatisticas_script(nome_script):
+    conn = conectar()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT COUNT(*) FROM logs_scripts WHERE nome_script = ?", (nome_script,))
+    total_execucoes = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT status, data_hora, tempo_execucao_ms FROM logs_scripts WHERE nome_script = ? ORDER BY id DESC LIMIT 1", (nome_script,))
+    ultimo = cursor.fetchone()
+    
+    conn.close()
+    
+    status_ult = ultimo[0] if ultimo else "Nunca executado"
+    data_ult = ultimo[1] if ultimo else "-"
+    tempo_ult = f"{ultimo[2]}ms" if ultimo else "-"
+    
+    return {
+        "total": total_execucoes,
+        "ultimo_status": status_ult,
+        "ultima_data": data_ult,
+        "tempo": tempo_ult
+    }

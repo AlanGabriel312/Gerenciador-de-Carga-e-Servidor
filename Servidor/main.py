@@ -1,14 +1,13 @@
 import os
-import threading # ADICIONE ESTA LINHA
+import threading
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from database import inicializar_banco
 from background_tasks import rotina_verificacao_sistema, ler_bateria_termux
-
-# MODIFIQUE ESTA LINHA PARA IMPORTAR AS DUAS FUNÇÕES
 from telegram_bot import enviar_mensagem_telegram, escutar_comandos_telegram 
+from executor_scripts import rodar_script_por_nome, listar_scripts_disponiveis
 
 app = FastAPI(title="Servidor Central - Android IoT")
 
@@ -21,17 +20,25 @@ for pasta in PASTAS_PADRAO:
 
 inicializar_banco()
 
+def rotina_agendada_scripts():
+    """Roda todos os scripts da pasta scripts_iot automaticamente a cada intervalo"""
+    scripts = listar_scripts_disponiveis()
+    for s in scripts:
+        rodar_script_por_nome(s)
+
 scheduler = BackgroundScheduler()
 scheduler.add_job(rotina_verificacao_sistema, 'interval', minutes=5)
+scheduler.add_job(rotina_agendada_scripts, 'interval', hours=1) # Executa a pasta de scripts a cada 1 hora
 scheduler.start()
 
-# Inicia a escuta do Telegram em segundo plano para ler o /status
+# Inicia a escuta do Telegram em segundo plano
 threading.Thread(target=escutar_comandos_telegram, daemon=True).start()
 
 try:
-    enviar_mensagem_telegram("🚀 *Servidor Central online!* Gerenciador de arquivos e bateria operantes.")
+    enviar_mensagem_telegram("🚀 *Servidor Central online!* Gerenciador de arquivos, bateria e scripts operantes.")
 except Exception:
     pass
+
 # ==========================================
 # ROTAS DA PÁGINA INICIAL E API DO ESP8266
 # ==========================================

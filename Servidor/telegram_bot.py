@@ -5,6 +5,9 @@ import json
 import time
 from dotenv import load_dotenv
 
+from executor_scripts import listar_scripts_disponiveis, rodar_script_por_nome
+from database import obter_estatisticas_script
+
 load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -69,20 +72,15 @@ def registrar_cache_rota(caminho_relativo, pagina):
     return novo_id
 
 def gerar_teclado_diretorio(caminho_relativo="", pagina=0):
-    """Constrói os botões para pastas, subpastas, arquivos e paginação (5 por página)"""
     caminho_relativo = caminho_relativo.strip("/")
     caminho_absoluto = os.path.join(STORAGE_DIR, caminho_relativo) if caminho_relativo else STORAGE_DIR
-    
-    print(f"📂 [LOG EXPLORADOR] Acessando caminho: {caminho_absoluto}")
 
     if not os.path.exists(caminho_absoluto):
-        print(f"❌ [LOG ERRO] Caminho não existe: {caminho_absoluto}")
         return f"❌ Diretório não encontrado: `/{caminho_relativo}`", None
 
     try:
         itens = sorted(os.listdir(caminho_absoluto))
-    except Exception as e:
-        print(f"❌ [LOG ERRO] Falha ao listar diretório: {e}")
+    except Exception:
         return "❌ Erro ao ler o diretório.", None
 
     pastas = []
@@ -103,7 +101,6 @@ def gerar_teclado_diretorio(caminho_relativo="", pagina=0):
     itens_pagina = todos_elementos[inicio:fim]
 
     teclado = []
-    
     for el in itens_pagina:
         sub_caminho = f"{caminho_relativo}/{el['nome']}" if caminho_relativo else el['nome']
         if el["tipo"] == "pasta":
@@ -181,16 +178,26 @@ def escutar_comandos_telegram():
                                 if texto == "/status":
                                     bateria = ler_bateria_termux()
                                     if bateria:
-                                        enviar_mensagem_telegram(f"📊 *Status Atual*\n🔋 Bat: {bateria['porcentagem']}%\n🔌 Conexão: {bateria['status_plug']}\n🌡️ Temp: {bateria['temperatura']}°C")
+                                        enviar_mensagem_telegram(f"📊 *Status Atual*\n🔋 Bat: {bateria['porcentagem']}%\n🔌 Conexão: {bateria['status_plug']}\n🌡️ Temp: {bateria['temperatura']}°C", chat_id=chat_id)
                                 elif texto == "/arquivos":
                                     txt, teclado_arq = gerar_teclado_diretorio("", 0)
-                                    enviar_mensagem_telegram(txt, teclado_arq, chat_id)
-                                elif texto == "/start" or texto == "oi":
-                                    enviar_mensagem_telegram("🤖 *Servidor Ouvindo!*\nComandos:\n`/status` - Bateria\n`/arquivos` - Navegar pelas pastas\n\n_Dica: Para guardar algo, é só anexar aqui no chat!_")
+                                    enviar_mensagem_telegram(txt, teclado_arq, chat_id=chat_id)
+                                elif texto == "/scripts":
+                                    scripts = listar_scripts_disponiveis()
+                                    if not scripts:
+                                        enviar_mensagem_telegram("📦 *Nenhum script encontrado na pasta `scripts_iot`.*", chat_id=chat_id)
+                                    else:
+                                        teclado = [[{"text": f"⚙️ {s}", "callback_data": f"script_info:{s}"}] for s in scripts]
+                                        teclado.append([{"text": "❌ Fechar Menu", "callback_data": "dir:fechar"}])
+                                        enviar_mensagem_telegram("⚙️ *Gerenciador de Scripts IoT*\nSelecione um script abaixo para ver detalhes:", teclado_inline=teclado, chat_id=chat_id)
+                                elif texto in ["/start", "oi", "olá"]:
+                                    enviar_mensagem_telegram("🤖 *Servidor Ouvindo!*\nComandos:\n`/status` - Bateria\n`/arquivos` - Navegar pelas pastas\n`/scripts` - Automações IoT\n\n_Dica: Para guardar algo, é só anexar aqui no chat!_", chat_id=chat_id)
 
                         elif "callback_query" in update:
                             cb = update["callback_query"]
                             chat_id = str(cb["message"]["chat"]["id"])
+                            if chat_id != TELEGRAM_CHAT_ID: continue
+                            
                             data = cb["data"]
                             msg_id = cb["message"]["message_id"]
                             
@@ -215,16 +222,14 @@ def escutar_comandos_telegram():
                             
                             elif data.startswith("dir:"):
                                 cache_id = data.replace("dir:", "")
-                                
                                 if cache_id == "fechar":
-                                    editar_mensagem_telegram(chat_id, msg_id, "📁 *Explorador fechado.*")
+                                    editar_mensagem_telegram(chat_id, msg_id, "📁 *Menu fechado.*")
                                     continue
                                     
                                 if cache_id in navegacao_cache:
                                     info_cache = navegacao_cache[cache_id]
                                     sub_dir, pagina_str = info_cache.rsplit(":::", 1)
                                     pagina = int(pagina_str)
-                                    
                                     txt, teclado_dir = gerar_teclado_diretorio(sub_dir, pagina)
                                     editar_mensagem_telegram(chat_id, msg_id, txt, teclado_dir)
                                 else:
@@ -255,6 +260,52 @@ def escutar_comandos_telegram():
                                         editar_mensagem_telegram(chat_id, msg_id, f"❌ Erro ao enviar: {ex}")
                                 else:
                                     editar_mensagem_telegram(chat_id, msg_id, "❌ Arquivo não encontrado.")
+
+                            # GERENCIAMENTO DE SCRIPTS VIA TELEGRAM
+                            elif data.startswith("script_info:"):
+                                nome_script = data.replace("script_info:", "")
+                                stats = obter_estatisticas_script(nome_script)
+                                
+                                texto_painel = (
+                                    f"⚙️ *Script:* `{nome_script}`\n\n"
+                                    f"📊 *Total de Execuções:* {stats['total']}\n"
+                                    f"🕒 *Última Execução:* {stats['ultima_data']}\n"
+                                    f"⚡ *Último Status:* `{stats['ultimo_status']}`\n"
+                                    f"⏱️ *Tempo do Último Run:* {stats['tempo']}"
+                                )
+                                
+                                teclado_acao = [
+                                    [{"text": "▶️ Executar Agora", "callback_data": f"script_run:{nome_script}"}],
+                                    [{"text": "🔙 Voltar à Lista", "callback_data": "script_voltar"}]
+                                ]
+                                editar_mensagem_telegram(chat_id, msg_id, texto_painel, teclado_acao)
+                                
+                            elif data.startswith("script_run:"):
+                                nome_script = data.replace("script_run:", "")
+                                editar_mensagem_telegram(chat_id, msg_id, f"⏳ *Executando `{nome_script}`...*")
+                                
+                                sucesso, mensagem = rodar_script_por_nome(nome_script)
+                                stats = obter_estatisticas_script(nome_script)
+                                icone = "✅" if sucesso else "❌"
+                                
+                                texto_resultado = (
+                                    f"{icone} *Resultado:*\n{mensagem}\n\n"
+                                    f"⚙️ *Script:* `{nome_script}`\n"
+                                    f"📊 *Total Execuções:* {stats['total']}"
+                                )
+                                
+                                teclado_acao = [
+                                    [{"text": "▶️ Executar Novamente", "callback_data": f"script_run:{nome_script}"}],
+                                    [{"text": "🔙 Voltar à Lista", "callback_data": "script_voltar"}]
+                                ]
+                                editar_mensagem_telegram(chat_id, msg_id, texto_resultado, teclado_acao)
+                                
+                            elif data == "script_voltar":
+                                scripts = listar_scripts_disponiveis()
+                                teclado = [[{"text": f"⚙️ {s}", "callback_data": f"script_info:{s}"}] for s in scripts]
+                                teclado.append([{"text": "❌ Fechar Menu", "callback_data": "dir:fechar"}])
+                                editar_mensagem_telegram(chat_id, msg_id, "⚙️ *Gerenciador de Scripts IoT*\nSelecione um script abaixo:", teclado)
+
         except Exception as e:
             pass 
         time.sleep(2)

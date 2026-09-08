@@ -1,0 +1,1 @@
+print("Script de teste rodou com sucesso!")
