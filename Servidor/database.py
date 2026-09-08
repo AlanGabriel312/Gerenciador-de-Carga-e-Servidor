@@ -11,7 +11,6 @@ def inicializar_banco():
     conn = conectar()
     cursor = conn.cursor()
     
-    # Tabela de Telemetria da Bateria
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS telemetria_bateria (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,7 +21,6 @@ def inicializar_banco():
         )
     """)
     
-    # Tabela de Logs de Execução de Scripts
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS logs_scripts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,7 +39,7 @@ def registrar_telemetria(porcentagem, status_rele, temperatura):
     conn = conectar()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO telemetria_bateria (porcentagem, status_rele, temperatura) VALUES (?, ?, ?)",
+        "INSERT INTO telemetria_bateria (porcentagem, status_rele, temperatura, data_hora) VALUES (?, ?, ?, datetime('now', 'localtime'))",
         (porcentagem, status_rele, temperatura)
     )
     conn.commit()
@@ -51,7 +49,7 @@ def registrar_log_script(nome, status, erro=None, tempo_ms=0):
     conn = conectar()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO logs_scripts (nome_script, status, mensagem_erro, tempo_execucao_ms) VALUES (?, ?, ?, ?)",
+        "INSERT INTO logs_scripts (nome_script, status, mensagem_erro, tempo_execucao_ms, data_hora) VALUES (?, ?, ?, ?, datetime('now', 'localtime'))",
         (nome, status, erro, tempo_ms)
     )
     conn.commit()
@@ -61,8 +59,8 @@ def registrar_execucao_script(nome_script, status, mensagem_erro="", tempo_ms=0)
     conn = conectar()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO logs_scripts (nome_script, status, mensagem_erro, tempo_execucao_ms)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO logs_scripts (nome_script, status, mensagem_erro, tempo_execucao_ms, data_hora)
+        VALUES (?, ?, ?, ?, datetime('now', 'localtime'))
     """, (nome_script, status, mensagem_erro, tempo_ms))
     conn.commit()
     conn.close()

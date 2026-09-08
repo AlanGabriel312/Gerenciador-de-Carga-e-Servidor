@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import subprocess
 from database import registrar_execucao_script
@@ -11,7 +12,6 @@ def listar_scripts_disponiveis():
         os.makedirs(SCRIPTS_DIR, exist_ok=True)
         return []
     
-    # Retorna todos os arquivos .py na pasta scripts_iot (ignora arquivos ocultos ou __init__)
     return sorted([f[:-3] for f in os.listdir(SCRIPTS_DIR) if f.endswith(".py") and not f.startswith("__")])
 
 def rodar_script_por_nome(nome_script):
@@ -23,18 +23,28 @@ def rodar_script_por_nome(nome_script):
     
     inicio = time.time()
     try:
-        resultado = subprocess.run(["python", caminho_script], capture_output=True, text=True, timeout=60)
+        # Usa sys.executable para garantir o mesmo Python e envia a execução
+        processo = subprocess.run(
+            [sys.executable, caminho_script],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
         tempo_ms = int((time.time() - inicio) * 1000)
         
-        if resultado.returncode == 0:
+        if processo.returncode == 0:
+            saida = processo.stdout.strip() or "Executado com sucesso (sem output)."
             registrar_execucao_script(nome_script, "SUCESSO", "", tempo_ms)
-            msg_saida = resultado.stdout.strip() or "Executado sem saída de texto."
-            return True, f"Sucesso em {tempo_ms}ms:\n`{msg_saida[:150]}`"
+            return True, f"Sucesso em {tempo_ms}ms:\n`{saida[:150]}`"
         else:
-            erro_msg = resultado.stderr.strip() or "Erro desconhecido na execução."
+            erro_msg = processo.stderr.strip() or "Erro desconhecido durante a execução."
             registrar_execucao_script(nome_script, "ERRO", erro_msg[:200], tempo_ms)
-            return False, f"Erro ({tempo_ms}ms):\n`{erro_msg[:150]}`"
+            return False, f"Erro em {tempo_ms}ms:\n`{erro_msg[:150]}`"
             
+    except subprocess.TimeoutExpired:
+        tempo_ms = int((time.time() - inicio) * 1000)
+        registrar_execucao_script(nome_script, "TIMEOUT", "Excedeu o tempo limite de 15s", tempo_ms)
+        return False, f"Tempo limite excedido (mais de 15s)."
     except Exception as e:
         tempo_ms = int((time.time() - inicio) * 1000)
         registrar_execucao_script(nome_script, "ERRO_EXCECAO", str(e), tempo_ms)
