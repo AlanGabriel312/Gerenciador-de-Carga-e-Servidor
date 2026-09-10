@@ -31,7 +31,7 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(rotina_verificacao_sistema, 'interval', minutes=5)
 
 # COMENTE a linha abaixo para NÃO rodar os scripts da pasta sozinhos a cada 1h:
-# scheduler.add_job(rotina_agendada_scripts, 'interval', hours=1)
+scheduler.add_job(rotina_agendada_scripts, 'interval', hours=1)
 
 scheduler.start()
 
