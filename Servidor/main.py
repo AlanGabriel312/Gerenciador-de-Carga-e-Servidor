@@ -27,7 +27,7 @@ def rotina_agendada_scripts():
         rodar_script_por_nome(s)
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(rotina_verificacao_sistema, 'interval', minutes=5)
+#scheduler.add_job(rotina_verificacao_sistema, 'interval', minutes=5)  # essa linha determina se os codigos vao rodar a cada certo tempo
 scheduler.add_job(rotina_agendada_scripts, 'interval', hours=1) # Executa a pasta de scripts a cada 1 hora
 scheduler.start()
 
