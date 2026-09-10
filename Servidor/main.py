@@ -27,8 +27,12 @@ def rotina_agendada_scripts():
         rodar_script_por_nome(s)
 
 scheduler = BackgroundScheduler()
-#scheduler.add_job(rotina_verificacao_sistema, 'interval', minutes=5)  # essa linha determina se os codigos vao rodar a cada certo tempo
-scheduler.add_job(rotina_agendada_scripts, 'interval', hours=1) # Executa a pasta de scripts a cada 1 hora
+# Mantém a verificação de bateria e sistema rodando a cada 5 minutos:
+scheduler.add_job(rotina_verificacao_sistema, 'interval', minutes=5)
+
+# COMENTE a linha abaixo para NÃO rodar os scripts da pasta sozinhos a cada 1h:
+# scheduler.add_job(rotina_agendada_scripts, 'interval', hours=1)
+
 scheduler.start()
 
 # Inicia a escuta do Telegram em segundo plano
