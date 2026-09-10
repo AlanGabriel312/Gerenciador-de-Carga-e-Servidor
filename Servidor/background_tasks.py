@@ -1,7 +1,6 @@
 import subprocess
 import json
 from database import registrar_telemetria
-from telegram_bot import enviar_mensagem_telegram
 
 def ler_bateria_termux():
     try:
@@ -21,6 +20,7 @@ alerta_temp_enviado = False
 
 def rotina_verificacao_sistema():
     global alerta_bateria_enviado, alerta_temp_enviado
+    from telegram_bot import enviar_mensagem_telegram  # Import local previne travamento circular
     
     bateria = ler_bateria_termux()
     if not bateria:

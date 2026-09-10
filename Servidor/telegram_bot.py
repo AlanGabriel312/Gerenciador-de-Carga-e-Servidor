@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 from executor_scripts import listar_scripts_disponiveis, rodar_script_por_nome
 from database import obter_estatisticas_script
+from background_tasks import ler_bateria_termux  # <--- Mova o import para cá!
 
 load_dotenv()
 
@@ -132,7 +133,6 @@ def gerar_teclado_diretorio(caminho_relativo="", pagina=0):
     return texto, teclado
 
 def escutar_comandos_telegram():
-    from background_tasks import ler_bateria_termux 
     global arquivos_pendentes, navegacao_cache
     offset = None
     
