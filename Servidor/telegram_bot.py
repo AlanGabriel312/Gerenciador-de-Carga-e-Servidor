@@ -3,6 +3,8 @@ import urllib.request
 import urllib.parse
 import json
 import time
+import speech_recognition as sr
+from pydub import AudioSegment
 from dotenv import load_dotenv
 
 from executor_scripts import listar_scripts_disponiveis, rodar_script_por_nome
@@ -172,6 +174,10 @@ def escutar_comandos_telegram():
                                     [{"text": "📦 Diversos", "callback_data": "pasta:diversos"}, {"text": "❌ Cancelar", "callback_data": "pasta:cancelar"}]
                                 ]
                                 enviar_mensagem_telegram(f"🖼️ Recebi uma foto.\nEm qual pasta principal devo salvar?", teclado, chat_id)
+                            elif "voice" in msg:
+                                file_id = msg["voice"]["file_id"]
+                                enviar_mensagem_telegram("🎧 _Ouvindo áudio..._", chat_id=chat_id)
+                                processar_audio_telegram(file_id, chat_id)
                             
                             elif "text" in msg:
                                 texto = msg["text"].lower().strip()
@@ -309,3 +315,72 @@ def escutar_comandos_telegram():
         except Exception as e:
             pass 
         time.sleep(2)
+
+def processar_audio_telegram(file_id, chat_id):
+    caminho_ogg = os.path.join(STORAGE_DIR, "temp_voice.ogg")
+    caminho_wav = os.path.join(STORAGE_DIR, "temp_voice.wav")
+    
+    # 1. Baixa o arquivo do Telegram
+    if not baixar_arquivo_telegram(file_id, "", "temp_voice.ogg"):
+        enviar_mensagem_telegram("❌ Não consegui baixar o áudio enviado.", chat_id=chat_id)
+        return
+
+    try:
+        caminho_ogg_full = os.path.join(STORAGE_DIR, "temp_voice.ogg")
+        caminho_wav_full = os.path.join(STORAGE_DIR, "temp_voice.wav")
+        
+        # 2. Converte .ogg para .wav (exigido pelo reconhecedor)
+        sound = AudioSegment.from_file(caminho_ogg_full)
+        sound.export(caminho_wav_full, format="wav")
+
+        # 3. Processa a voz com o Google Speech Recognition (Português)
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(caminho_wav_full) as source:
+            audio_data = recognizer.record(source)
+            texto_transcrito = recognizer.recognize_google(audio_data, language="pt-BR").lower()
+
+        # Limpa arquivos temporários
+        if os.path.exists(caminho_ogg_full): os.remove(caminho_ogg_full)
+        if os.path.exists(caminho_wav_full): os.remove(caminho_wav_full)
+
+        enviar_mensagem_telegram(f"🎙️ *Entendi:* _\"{texto_transcrito}\"_", chat_id=chat_id)
+        
+        # 4. Interpretador de Comandos por Voz
+        executar_comando_por_texto(texto_transcrito, chat_id)
+
+    except sr.UnknownValueError:
+        enviar_mensagem_telegram("🤔 Não consegui entender o que você falou no áudio.", chat_id=chat_id)
+    except Exception as e:
+        enviar_mensagem_telegram(f"❌ Erro ao processar áudio: {e}", chat_id=chat_id)
+
+def executar_comando_por_texto(texto, chat_id):
+    from background_tasks import ler_bateria_termux
+    
+    # Intenção: Bateria / Status
+    if any(p in texto for p in ["bateria", "status", "energia", "carga"]):
+        bateria = ler_bateria_termux()
+        if bateria:
+            enviar_mensagem_telegram(
+                f"📊 *Status Atual*\n🔋 Bat: {bateria['porcentagem']}%\n🔌 Conexão: {bateria['status_plug']}\n🌡️ Temp: {bateria['temperatura']}°C", 
+                chat_id=chat_id
+            )
+            
+    # Intenção: Dashboard / Diagnóstico
+    elif any(p in texto for p in ["dashboard", "diagnostico", "painel", "relatorio"]):
+        enviar_mensagem_telegram("⏳ *Executando Dashboard...*", chat_id=chat_id)
+        sucesso, msg = rodar_script_por_nome("dashboard_sistema")
+        enviar_mensagem_telegram(msg, chat_id=chat_id)
+        
+    # Intenção: Listar Arquivos
+    elif any(p in texto for p in ["arquivo", "arquivos", "pasta", "pastas"]):
+        txt, teclado_arq = gerar_teclado_diretorio("", 0)
+        enviar_mensagem_telegram(txt, teclado_arq, chat_id=chat_id)
+        
+    # Intenção: Listar Scripts
+    elif any(p in texto for p in ["script", "scripts", "robo", "robôs"]):
+        scripts = listar_scripts_disponiveis()
+        teclado = [[{"text": f"⚙️ {s}", "callback_data": f"script_info:{s}"}] for s in scripts]
+        enviar_mensagem_telegram("⚙️ *Scripts Disponíveis:*", teclado_inline=teclado, chat_id=chat_id)
+        
+    else:
+        enviar_mensagem_telegram("⚠️ Não reconheci um comando válido na sua fala.\nTente dizer frases como: *'Como tá a bateria?'* ou *'Rodar o dashboard'*.", chat_id=chat_id)
