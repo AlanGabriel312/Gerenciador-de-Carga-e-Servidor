@@ -4,6 +4,7 @@ import urllib.parse
 import json
 import time
 import speech_recognition as sr
+import unicodedata
 from pydub import AudioSegment
 from dotenv import load_dotenv
 
@@ -353,9 +354,12 @@ def processar_audio_telegram(file_id, chat_id):
     except Exception as e:
         enviar_mensagem_telegram(f"❌ Erro ao processar áudio: {e}", chat_id=chat_id)
 
+def remover_acentos(texto):
+    return ''.join(c for c in unicodedata.normalize('NFD', texto) if unicodedata.category(c) != 'Mn')
+
 def executar_comando_por_texto(texto, chat_id):
-    from background_tasks import ler_bateria_termux
-    
+    texto = remover_acentos(texto) 
+
     # Intenção: Bateria / Status
     if any(p in texto for p in ["bateria", "status", "energia", "carga"]):
         bateria = ler_bateria_termux()

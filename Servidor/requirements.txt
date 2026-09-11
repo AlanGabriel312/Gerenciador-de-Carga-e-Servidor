@@ -6,3 +6,6 @@ python-telegram-bot
 apscheduler
 python-dotenv
 tzdata
+speechrecognition
+pydub
+unicodedata
