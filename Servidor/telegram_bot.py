@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 from executor_scripts import listar_scripts_disponiveis, rodar_script_por_nome
 from database import obter_estatisticas_script
-from background_tasks import ler_bateria_termux  # <--- Mova o import para cá!
+from background_tasks import ler_bateria_termux 
 
 load_dotenv()
 
