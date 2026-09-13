@@ -205,17 +205,31 @@ Basta gravar uma nota de voz no chat do bot do Telegram. O servidor tratará o t
 ## 📁 Estrutura do Repositório
 
 ```plaintext
+├── ESP8266/
+│   ├── imagens/
+│   │   ├── caixa_aberta.jpeg
+│   │   ├── caixa_fechada.jpeg
+│   │   └── modelagem_3D.png
+│   ├── include/
+│   ├── lib/
+│   ├── src/                  # Contém o main.cpp do ESP8266
+│   ├── test/
+│   ├── case_3d_esp8266.stl   # Modelo 3D da case para impressão em PLA
+│   └── platformio.ini        # Configurações do PlatformIO
 ├── Servidor/
-│   ├── main.py                 # Ponto de entrada (FastAPI, Agendador e Rotas)
-│   ├── telegram_bot.py         # Bot Telegram, menus e transcrição de Voz
-│   ├── background_tasks.py     # Leitura de bateria e rotinas de sistema
-│   ├── database.py             # Inicialização e persistência no SQLite
-│   ├── executor_scripts.py     # Runner isolado de subprocessos
-│   ├── dashboard_sistema.py    # Script de diagnóstico sob demanda
-│   ├── scripts_iot/            # Pasta reservada para robôs e automações Python
-│   └── storage/                # Servidor de arquivos (fotos, docs, áudios)
-├── Hardware/
-│   ├── main.cpp                # Código C++ do ESP8266 para o Relé
-│   └── case_3d_esp8266.stl     # Modelo 3D da case impressa em PLA
+│   ├── imagens/
+│   │   ├── print1.png        # Prints do Bot / Dashboard
+│   │   ├── print2.png
+│   │   ├── print3.png
+│   │   └── print4.png
+│   ├── scripts_iot/          # Pasta para scripts Python sob demanda
+│   │   └── dashboard_sistema.py
+│   ├── background_tasks.py   # Leitura de bateria e rotinas de telemetria
+│   ├── database.py           # Gestão e inicialização do SQLite (servidor.db)
+│   ├── executor_scripts.py    # Runner isolado de subprocessos
+│   ├── main.py               # Ponto de entrada (FastAPI, Agendador e Rotas)
+│   ├── requirements.txt      # Dependências do projeto Python
+│   └── telegram_bot.py       # Bot Telegram, menus e transcrição de voz
+├── .gitignore
 └── README.md
 ```
