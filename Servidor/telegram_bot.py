@@ -32,11 +32,9 @@ def enviar_mensagem_telegram(mensagem: str, teclado_inline=None, chat_id=TELEGRA
     dados_codificados = urllib.parse.urlencode(dados).encode("utf-8")
     try:
         req = urllib.request.Request(url, data=dados_codificados)
-        # Timeout reduzido para 5s para nao travar o loop de execucao se a rede oscilar na carga
-        with urllib.request.urlopen(req, timeout=5) as resposta:
-            return True
-    except Exception as e:
-        print(f"Erro ao enviar mensagem no Telegram: {e}")
+        urllib.request.urlopen(req, timeout=5)
+        return True
+    except Exception:
         return False
 
 def editar_mensagem_telegram(chat_id, message_id, novo_texto, teclado_inline=None):
@@ -143,11 +141,11 @@ def escutar_comandos_telegram():
     
     while True:
         try:
-            url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates?timeout=10"
+            url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates?timeout=20"
             if offset: url += f"&offset={offset}"
             req = urllib.request.Request(url)
             
-            with urllib.request.urlopen(req, timeout=15) as resposta:
+            with urllib.request.urlopen(req, timeout=25) as resposta:
                 dados = json.loads(resposta.read().decode())
                 if dados.get("ok"):
                     for update in dados.get("result", []):
@@ -316,14 +314,14 @@ def escutar_comandos_telegram():
                                 editar_mensagem_telegram(chat_id, msg_id, "⚙️ *Gerenciador de Scripts IoT*\nSelecione um script abaixo:", teclado)
 
         except Exception as e:
-            # Em caso de erro de socket/rede durante o carregamento, aguarda 3s e re-tenta sem quebrar o loop
-            time.sleep(3)
-        time.sleep(1)
+            pass 
+        time.sleep(2)
 
 def processar_audio_telegram(file_id, chat_id):
     caminho_ogg = os.path.join(STORAGE_DIR, "temp_voice.ogg")
     caminho_wav = os.path.join(STORAGE_DIR, "temp_voice.wav")
     
+    # 1. Baixa o arquivo do Telegram
     if not baixar_arquivo_telegram(file_id, "", "temp_voice.ogg"):
         enviar_mensagem_telegram("❌ Não consegui baixar o áudio enviado.", chat_id=chat_id)
         return
@@ -332,19 +330,23 @@ def processar_audio_telegram(file_id, chat_id):
         caminho_ogg_full = os.path.join(STORAGE_DIR, "temp_voice.ogg")
         caminho_wav_full = os.path.join(STORAGE_DIR, "temp_voice.wav")
         
+        # 2. Converte .ogg para .wav (exigido pelo reconhecedor)
         sound = AudioSegment.from_file(caminho_ogg_full)
         sound.export(caminho_wav_full, format="wav")
 
+        # 3. Processa a voz com o Google Speech Recognition (Português)
         recognizer = sr.Recognizer()
         with sr.AudioFile(caminho_wav_full) as source:
             audio_data = recognizer.record(source)
             texto_transcrito = recognizer.recognize_google(audio_data, language="pt-BR").lower()
 
+        # Limpa arquivos temporários
         if os.path.exists(caminho_ogg_full): os.remove(caminho_ogg_full)
         if os.path.exists(caminho_wav_full): os.remove(caminho_wav_full)
 
         enviar_mensagem_telegram(f"🎙️ *Entendi:* _\"{texto_transcrito}\"_", chat_id=chat_id)
         
+        # 4. Interpretador de Comandos por Voz
         executar_comando_por_texto(texto_transcrito, chat_id)
 
     except sr.UnknownValueError:
