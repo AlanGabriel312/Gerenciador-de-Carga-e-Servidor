@@ -23,6 +23,7 @@ arquivos_pendentes = {}
 navegacao_cache = {}
 ITENS_POR_PAGINA = 5
 
+#Esse é o antigo que funcionava
 def enviar_mensagem_telegram(mensagem: str, teclado_inline=None, chat_id=TELEGRAM_CHAT_ID):
     if not TELEGRAM_TOKEN or not chat_id: return False
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
