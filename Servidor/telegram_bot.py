@@ -5,6 +5,7 @@ import json
 import time
 import speech_recognition as sr
 import unicodedata
+import threading
 from pydub import AudioSegment
 from dotenv import load_dotenv
 
@@ -179,7 +180,8 @@ def escutar_comandos_telegram():
                             elif "voice" in msg:
                                 file_id = msg["voice"]["file_id"]
                                 enviar_mensagem_telegram("🎧 _Ouvindo áudio..._", chat_id=chat_id)
-                                processar_audio_telegram(file_id, chat_id)
+                                # Joga o processamento pesadão para escanteio (Thread) para não travar o bot
+                                threading.Thread(target=processar_audio_telegram, args=(file_id, chat_id)).start()
                             
                             elif "text" in msg:
                                 texto = msg["text"].lower().strip()
