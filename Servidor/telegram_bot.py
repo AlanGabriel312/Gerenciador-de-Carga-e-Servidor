@@ -142,11 +142,11 @@ def escutar_comandos_telegram():
     
     while True:
         try:
-            url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates?timeout=20"
+            url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates?timeout=5"
             if offset: url += f"&offset={offset}"
             req = urllib.request.Request(url)
             
-            with urllib.request.urlopen(req, timeout=25) as resposta:
+            with urllib.request.urlopen(req, timeout=8) as resposta:
                 dados = json.loads(resposta.read().decode())
                 if dados.get("ok"):
                     for update in dados.get("result", []):
@@ -316,7 +316,7 @@ def escutar_comandos_telegram():
 
         except Exception as e:
             pass 
-        time.sleep(2)
+        time.sleep(0.5)
 
 def processar_audio_telegram(file_id, chat_id):
     caminho_ogg = os.path.join(STORAGE_DIR, "temp_voice.ogg")

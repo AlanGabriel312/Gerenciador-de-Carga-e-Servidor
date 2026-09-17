@@ -4,16 +4,23 @@ from database import registrar_telemetria
 
 def ler_bateria_termux():
     try:
-        resultado = subprocess.run(["termux-battery-status"], capture_output=True, text=True)
-        dados = json.loads(resultado.stdout)
-        return {
-            "porcentagem": dados.get("percentage"),
-            "status_plug": dados.get("plugged"),
-            "temperatura": dados.get("temperature")
-        }
+        # timeout=2 garante que o bot nao fique congelado se a API do Android demorar
+        resultado = subprocess.run(
+            ["termux-battery-status"], 
+            capture_output=True, 
+            text=True, 
+            timeout=2
+        )
+        if resultado.returncode == 0:
+            dados = json.loads(resultado.stdout)
+            return {
+                "porcentagem": dados.get("percentage", 0),
+                "status_plug": dados.get("plugged", "UNPLUGGED"),
+                "temperatura": dados.get("temperature", 0.0)
+            }
     except Exception as e:
-        print(f"Erro ao ler bateria: {e}")
-        return None
+        print(f"Erro/Timeout ao ler bateria: {e}")
+    return None
 
 alerta_bateria_enviado = False
 alerta_temp_enviado = False
